@@ -91,7 +91,7 @@ services:
       HASURA_GRAPHQL_JWT_SECRET: >-
         {
           "type": "RS256",
-          "jwk_url": "http://supertokens:3567/.well-known/jwks.json",
+          "jwk_url": "http://hasura-auth:3000/.well-known/jwks.json",
           "audience": "hasura"
         }
 

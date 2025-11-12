@@ -1,3 +1,26 @@
+# Hasura & Supertokens POC
+
+## Features
+
+- Authentication
+  - email/password
+  - machine-to-machine
+
+- GraphQL
+  - multiple databases
+
+## Generate Public/Private keys
+
+1. generate private key
+```
+openssl genrsa -out private.pem 2048
+```
+
+2. derived public key
+```
+openssl rsa -in private.pem -pubout -out public.pem
+```
+
 ## Insert Mock Data
 
 1. connect to postgres container
