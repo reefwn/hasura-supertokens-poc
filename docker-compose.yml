@@ -1,0 +1,147 @@
+version: "3.8"
+
+services:
+  ##################################################
+  #  POSTGRES DATABASES
+  ##################################################
+  postgres-customer:
+    image: postgres:15
+    container_name: postgres-customer
+    restart: always
+    environment:
+      POSTGRES_DB: customer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - ./data/postgres-customer:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  postgres-order:
+    image: postgres:15
+    container_name: postgres-order
+    restart: always
+    environment:
+      POSTGRES_DB: order
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - ./data/postgres-order:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+
+  postgres-report:
+    image: postgres:15
+    container_name: postgres-report
+    restart: always
+    environment:
+      POSTGRES_DB: report
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - ./data/postgres-report:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+
+  ##################################################
+  #  HASURA DATABASE
+  ##################################################
+  postgres-hasura:
+    image: postgres:15
+    container_name: postgres-hasura
+    restart: always
+    environment:
+      POSTGRES_DB: hasura
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - ./data/postgres-hasura:/var/lib/postgresql/data
+    ports:
+      - "5437:5432"
+
+  ##################################################
+  #  HASURA GRAPHQL ENGINE
+  ##################################################
+  hasura:
+    image: hasura/graphql-engine:v2.41.0
+    container_name: hasura
+    restart: always
+    depends_on:
+      - postgres-customer
+      - postgres-order
+      - postgres-report
+      - postgres-hasura
+      - supertokens
+    ports:
+      - "8080:8080"
+    environment:
+      HASURA_GRAPHQL_ADMIN_SECRET: "hasuraadminsecret"
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_DEV_MODE: "true"
+
+      # Metadata DB (used by Hasura itself)
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: postgres://postgres:postgrespassword@postgres-hasura:5432/hasura
+
+      # DB sources
+      HASURA_GRAPHQL_DB_URL_CUSTOMER: postgres://postgres:postgrespassword@postgres-customer:5432/customer
+      HASURA_GRAPHQL_DB_URL_ORDER: postgres://postgres:postgrespassword@postgres-order:5432/order
+      HASURA_GRAPHQL_DB_URL_REPORT: postgres://postgres:postgrespassword@postgres-report:5432/report
+
+      # JWT Auth Config (SuperTokens)
+      HASURA_GRAPHQL_JWT_SECRET: >-
+        {
+          "type": "RS256",
+          "jwk_url": "http://supertokens:3567/.well-known/jwks.json",
+          "audience": "hasura"
+        }
+
+      # Allow multiple databases
+      HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention, inherited_roles"
+
+    command:
+      - graphql-engine
+      - serve
+
+  ##################################################
+  #  SUPERTOKENS DATABASE
+  ##################################################
+  postgres-supertokens:
+    image: postgres:15
+    container_name: postgres-supertokens
+    restart: always
+    environment:
+      POSTGRES_DB: supertokens
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - ./data/postgres-supertokens:/var/lib/postgresql/data
+    ports:
+      - "5438:5432"
+
+  ##################################################
+  #  SUPERTOKENS SERVICE
+  ##################################################
+  supertokens:
+    image: registry.supertokens.io/supertokens/supertokens-postgresql
+    container_name: supertokens
+    restart: always
+    depends_on:
+      - postgres-supertokens
+    environment:
+      POSTGRESQL_CONNECTION_URI: "postgresql://postgres:postgrespassword@postgres-supertokens:5432/supertokens"
+    ports:
+      - "3567:3567"
+
+  ##################################################
+  #  NODE.JS BACKEND FOR INTERNAL SIGNUP + LOGIN
+  ##################################################
+  hasura-auth:
+    build: ./auth
+    container_name: auth
+    restart: always
+    depends_on:
+      - supertokens
+    env_file:
+      - ./auth/.env
+    ports:
+      - "3000:3000"
